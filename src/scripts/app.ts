@@ -23,6 +23,7 @@ export class MainApp {
         document.body.appendChild(this.app.view);
 
         this.app.stage.addChild(new GameScene(new Server()));
+
     }
 }
 

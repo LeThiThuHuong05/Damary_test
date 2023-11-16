@@ -72,8 +72,10 @@ export class GameScene extends PIXI.Container {
     private running = false;
     private tweening = [];
     private reels = [];
+private resultSpin = [];
 
-    reelContainer = new PIXI.Container();
+
+   private reelContainer = new PIXI.Container();
     public init (): void {
 
         this.addChild(this._logoSprite);
@@ -131,12 +133,12 @@ export class GameScene extends PIXI.Container {
             previousPosition: 0,
             blur: new PIXI.filters.BlurFilter(),
         };
-
+        this.resultSpin = [];
 for (let idx = 0; idx < GameScene.NUMBER_OF_ITEMS; idx++) {
     const symbol = symbolTypes[Math.floor(Math.random() * symbolTypes.length)];
     const reelId = Math.floor(idx / GameScene.NUMBER_OF_ROWS);
     const symbolId = idx % GameScene.NUMBER_OF_ROWS;
-
+    this.resultSpin.push(symbol);
     if(symbolId==0){
          rc = this.addChild(new PIXI.Container());
 
@@ -169,6 +171,18 @@ for (let idx = 0; idx < GameScene.NUMBER_OF_ITEMS; idx++) {
         this.reels.push(reel);  
         console.log(this.reels);
     }
+
+    
+      // let's create a mask
+      MainApp.inst.app.stage.addChild(boardContainer);
+const thing = new PIXI.Graphics();
+MainApp.inst.app.stage.addChild(thing);
+thing.position = boardContainer.position;
+thing.beginFill(0x8bc5ff, 1);
+thing.drawRect(-(boardContainer.width/2), -(boardContainer.height/2), boardContainer.width, boardContainer.height); 
+thing.lineStyle(0);
+boardContainer.mask=thing;
+this.reelContainer.mask = thing;
 }
 //         defaultBoard.forEach((symbol, idx) => {
 
@@ -235,20 +249,35 @@ for (let idx = 0; idx < GameScene.NUMBER_OF_ITEMS; idx++) {
                     const prevy = s.y;
     
                     s.y = ((r.position + j) % r.symbols.length) * GameScene.SYMBOL_HEIGHT - GameScene.SYMBOL_HEIGHT;
+                    // set texture when spin
                     if (s.y < 0 && prevy > GameScene.SYMBOL_HEIGHT )
                     {
                         // Detect going over and swap a texture.
                         // This should in proper product be determined from some logical reel.
-                        s.texture = symbolTexturesBlur[Math.floor(Math.random() * symbolTypes.length)];
+                        if(!this.running){
+                                // const result = this.resultSpin[i*GameScene.NUMBER_OF_ROWS+j]; // Get the result for each reel
+                                // const idx = symbolTypes.indexOf(result);
+                                // console.log(result," ", symbolTextures[result])
+                                // s.texture = symbolTextures[result];
+                        }else
+                        s.texture = symbolTexturesBlur[symbolTypes[Math.floor(Math.random() * symbolTypes.length)]];
                         // s.scale.x = s.scale.y = Math.min(GameScene.SYMBOL_WIDTH / s.texture.width, GameScene.SYMBOL_HEIGHT / s.texture.height);
                         // s.x = Math.round((GameScene.SYMBOL_WIDTH - s.width) / 2);
+                    }else{
+                        // set texture when stop
+                        // if(this.resultSpin.length){
+                        //         const result = this.resultSpin[i*GameScene.NUMBER_OF_ROWS+j]; // Get the result for each reel
+                        //         const idx = symbolTypes.indexOf(result);
+                        //         console.log(result," ", symbolTextures[result])
+                        //         s.texture = symbolTextures[result];
+                        // }
                     }
                 }
             }
 
             const now = Date.now();
             const remove = [];
-        
+      
             for (let i = 0; i < this.tweening.length; i++)
             {
                 const t = this.tweening[i];
@@ -259,7 +288,9 @@ for (let idx = 0; idx < GameScene.NUMBER_OF_ITEMS; idx++) {
                 if (phase === 1)
                 {
                     t.object[t.property] = t.target;
-                    if (t.complete) t.complete(t);
+                    if (t.complete) t.complete(t=>{
+                        console.log("HI");
+                    });
                     remove.push(t);
                 }
             }
@@ -296,43 +327,28 @@ this._startPlay();
          const extra = Math.floor(Math.random() * 3);
          const target = r.position + 10 + i * 5 + extra;
          const time = 2500 + i * 600 + extra * 600;
-console.log(i," ",target);
+        console.log(i," ",target);
       this.tweenTo(r, 'position', target, time, this.backout(0.5), null, i === this.reels.length - 1 ?() => {
         // When all reels complete spinning, recursively call the function or handle server response
-        if (this.running) spinReels(); // If still running, continue spinning
+      //  if (this.running) spinReels(); // If still running, continue spinning
     } : null);
      }
     }
     // Start the spinning process
     spinReels();
 
-
-    // const spinInterval = setInterval(() => {
-    //     for (let i = 0; i < this.reels.length; i++) {
-    //         const r = this.reels[i];
-    //         const extra = Math.floor(Math.random() * 3);
-    //         const target = r.position + 10 + i * 5 + extra;
-    //         const time = 2000 + i * 600 + extra * 600;
-    //         this.tweenTo(r, 'position', target, time, this.backout(0.5));
-    //     }
-    // }, 5000); // Set an interval that's longer than the total spin time
-
-    // // Stop the spinning interval after a set duration (e.g., 30s)
-    // setTimeout(() => {
-    //     clearInterval(spinInterval);
-    //     this.running = false; // Stop spinning
-    // }, 30000); // Replace with your desired duration or condition for stopping
-
-
     }
+
     private reelsComplete()
     {
        this. running = false;
     }
+    
     private lerp(a1, a2, t)
     {
         return a1 * (1 - t) + a2 * t;
     }
+
     private tweenTo(object, property, target, time, easing, onchange, oncomplete)
 {
     const tween = {
@@ -361,7 +377,8 @@ private backout(amount)
 
     private _onSpinDataResponded (data: string[]): void {
         console.log(` >>> received: ${data}`);
-        // this.reelsComplete();
+        this.reelsComplete();
+        this.resultSpin= data;
         /**
          * Received data from server.
          * TODO: should proceed in client here to stop the spin and show result.
@@ -372,7 +389,7 @@ private backout(amount)
             const r = this.reels[Math.floor(i/GameScene.NUMBER_OF_ROWS)];
             const s = r.symbols[i%GameScene.NUMBER_OF_ROWS];
             const idx = symbolTypes.indexOf(result);
-            s.texture = symbolTextures[idx];
+            s.texture = symbolTextures[result];
             // const target = r.position + (GameScene.NUMBER_OF_ROWS * 3) + idx; // Adjust the target based on the result
 
             // this.tweenTo(r, 'position', target, 2000, this.backout(0.5), null, i === this.reels.length - 1 ? this.reelsComplete.bind(this) : null);

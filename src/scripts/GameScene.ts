@@ -179,7 +179,7 @@ const thing = new PIXI.Graphics();
 MainApp.inst.app.stage.addChild(thing);
 thing.position = boardContainer.position;
 thing.beginFill(0x8bc5ff, 1);
-thing.drawRect(-(boardContainer.width/2), -(boardContainer.height/2), boardContainer.width, boardContainer.height); 
+thing.drawRect(-(boardContainer.width/2), -(boardContainer.height/2), boardContainer.width*1.1, boardContainer.height*1.1); 
 thing.lineStyle(0);
 boardContainer.mask=thing;
 this.reelContainer.mask = thing;
@@ -259,10 +259,11 @@ this.reelContainer.mask = thing;
                                 // const idx = symbolTypes.indexOf(result);
                                 // console.log(result," ", symbolTextures[result])
                                 // s.texture = symbolTextures[result];
-                        }else
-                        s.texture = symbolTexturesBlur[symbolTypes[Math.floor(Math.random() * symbolTypes.length)]];
-                        // s.scale.x = s.scale.y = Math.min(GameScene.SYMBOL_WIDTH / s.texture.width, GameScene.SYMBOL_HEIGHT / s.texture.height);
-                        // s.x = Math.round((GameScene.SYMBOL_WIDTH - s.width) / 2);
+                        }else{
+                            s.texture = symbolTexturesBlur[symbolTypes[Math.floor(Math.random() * symbolTypes.length)]];
+                              // s.scale.x = s.scale.y = Math.min(GameScene.SYMBOL_WIDTH / s.texture.width, GameScene.SYMBOL_HEIGHT / s.texture.height);
+                              // s.x = Math.round((GameScene.SYMBOL_WIDTH - s.width) / 2);
+                        }
                     }else{
                         // set texture when stop
                         // if(this.resultSpin.length){
@@ -281,16 +282,15 @@ this.reelContainer.mask = thing;
             for (let i = 0; i < this.tweening.length; i++)
             {
                 const t = this.tweening[i];
-                const phase = Math.min(1, (now - t.start) / t.time);
+                // const phase = Math.min(1, (now - t.start) / t.time);
+                const phase = Math.min(1, (now-t.start) /t.time);
         
-                t.object[t.property] = this.lerp(t.propertyBeginValue, t.target, t.easing(phase));
+                t.object[t.property] +=phase*0.2; //this.lerp(t.propertyBeginValue, t.target, t.easing(phase));
                 if (t.change) t.change(t);
-                if (phase === 1)
+                if (phase === 1 && !this.running)
                 {
                     t.object[t.property] = t.target;
-                    if (t.complete) t.complete(t=>{
-                        console.log("HI");
-                    });
+                    if (t.complete) t.complete(t);
                     remove.push(t);
                 }
             }
@@ -316,6 +316,7 @@ this._startPlay();
     {
         console.log(` >>> start spin1`);
         if (this.running) return;
+        this._udpateStyleSpinBtn(false);
         console.log(` >>> start spin2`);
         this.running = true;
  // Function to start the spinning process
@@ -331,7 +332,11 @@ this._startPlay();
       this.tweenTo(r, 'position', target, time, this.backout(0.5), null, i === this.reels.length - 1 ?() => {
         // When all reels complete spinning, recursively call the function or handle server response
       //  if (this.running) spinReels(); // If still running, continue spinning
-    } : null);
+   
+      this._udpateStyleSpinBtn(true);
+    } : ()=>{
+        console.log("HI");
+    });
      }
     }
     // Start the spinning process
@@ -346,6 +351,7 @@ this._startPlay();
     
     private lerp(a1, a2, t)
     {
+       
         return a1 * (1 - t) + a2 * t;
     }
 
@@ -406,5 +412,15 @@ private backout(amount)
             symbolTexturesBlur[type] = resources[`symbol_${type}_blur`].texture;
         });
         this.init();
+    }
+
+    private _udpateStyleSpinBtn(canSpin:boolean){
+        if(canSpin){
+            this._spinText.interactive = true;
+            this._spinText.style.fill = ['#ffffff', '#00ff99'];
+        }else{
+            this._spinText.interactive = false;
+            this._spinText.style.fill = ['#ffffff', '#696969'];
+        }
     }
 }

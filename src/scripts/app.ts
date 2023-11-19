@@ -15,16 +15,16 @@ export class MainApp {
         console.log('MainApp constructor');
         const canvas = <HTMLCanvasElement> document.getElementById('GameCanvas');
         this.app = new PIXI.Application({
-            backgroundColor: 0xefe1de,
-            width: 720,
+            transparent:true,
+            width: 1000,
             height: 960,
             view: canvas
         });
         document.body.appendChild(this.app.view);
 
         this.app.stage.addChild(new GameScene(new Server()));
-
     }
+
 }
 
 

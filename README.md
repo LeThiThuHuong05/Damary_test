@@ -15,7 +15,8 @@ Run npm command to install all node dependencies used in project
 Commands should be run under **command line** or **bash** shell.
 
 The following command builds and run the project in development mode with Hot Reload. Project will run at http://localhost:8080/ and reload automatically if there is any changes saved.
-    > $env:NODE_OPTIONS = "--openssl-legacy-provider"
+        > $env:NODE_OPTIONS = "--openssl-legacy-provider"
+	
 	> npm run start
 
 The following command builds the project in production mode.

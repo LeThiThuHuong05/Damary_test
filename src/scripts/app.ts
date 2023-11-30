@@ -16,7 +16,7 @@ export class MainApp {
         const canvas = <HTMLCanvasElement> document.getElementById('GameCanvas');
         this.app = new PIXI.Application({
             transparent:true,
-            width: 1000,
+            width: 720,
             height: 960,
             view: canvas
         });

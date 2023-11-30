@@ -1,21 +1,9 @@
 import * as PIXI from "pixi.js";
 import { MainApp } from "./app";
 import Server from "./Server";
+import { GameConfig } from "./GameConfig";
+import { Reel } from "./Reel";
 
-const symbolTextures = {
-  // '1' : null,
-  // '2' : null,
-  // '3' : null,
-  // '4' : null,
-  // '5' : null,
-  // '6' : null,
-  // '7' : null,
-  // '8' : null,
-  // 'K' : null
-};
-const symbolTexturesBlur = {};
-
-const symbolTypes = ["1", "2", "3", "4", "5", "6", "7", "8", "K"];
 export class GameScene extends PIXI.Container {
   constructor(server: Server) {
     super();
@@ -73,18 +61,17 @@ export class GameScene extends PIXI.Container {
   private _logoSprite: PIXI.Sprite;
   private _frameSprite: PIXI.Sprite;
   private _spinText: PIXI.Text;
-  private _spinning: boolean = false;
-  private running = false;
-  private isProcessing = false;
   private tweening = [];
   private reels = [];
   private resultSpin = [];
+  //public readonly reels: Array<Reel> = [];
+  public container: PIXI.Container;
 
-  private reelContainer = new PIXI.Container();
+  private reelsContainer = new PIXI.Container();
   public init(): void {
     // add logo
     this.addChild(this._logoSprite);
-    this._logoSprite.position.set(GameScene.SCENE_WIDTH / 2, 100);
+    this._logoSprite.position.set(GameConfig.SCENE_WIDTH / 2, 100);
     this._logoSprite.anchor.set(0.5);
     this._logoSprite.scale.set(0.5);
 
@@ -105,10 +92,10 @@ export class GameScene extends PIXI.Container {
     });
 
     this._spinText = new PIXI.Text("Start Spin", style);
-    this._spinText.x = GameScene.SCENE_WIDTH / 2 - this._spinText.width / 2;
+    this._spinText.x = GameConfig.SCENE_WIDTH / 2 - this._spinText.width / 2;
     this._spinText.y =
       MainApp.inst.app.screen.height -
-      200 +
+      150 +
       Math.round((100 - this._spinText.height) / 2);
     this.addChild(this._spinText);
 
@@ -120,70 +107,27 @@ export class GameScene extends PIXI.Container {
     this._spinText.addListener("pointerdown", this._startSpin.bind(this));
 
     this._isInitialized = true;
+    this._createBoard();
+    // let's create a mask
+    this._createMask(this.reelsContainer);
+  }
 
+  private _createBoard() {
+    // Create BOARD
     const boardContainer = this.addChild(new PIXI.Container());
     boardContainer.position = new PIXI.Point(
-      GameScene.SCENE_WIDTH / 2,
-      GameScene.SCENE_HEIGHT / 2
+      GameConfig.SCENE_WIDTH / 2,
+      GameConfig.SCENE_HEIGHT / 2 + 100
     );
-    const boardWidth = GameScene.SYMBOL_WIDTH * GameScene.NUMBER_OF_REELS;
-    const boardHeight = GameScene.SYMBOL_HEIGHT * GameScene.NUMBER_OF_ROWS;
 
-    var rc = this.addChild(new PIXI.Container());
-
-    var reel = {
-      container: rc,
-      symbols: [],
-      position: 0,
-      previousPosition: 0,
-      blur: new PIXI.filters.BlurFilter(),
-      isSpin: false,
-    };
-    this.resultSpin = [];
-    for (let idx = 0; idx < GameScene.NUMBER_OF_ITEMS; idx++) {
-      const symbol =
-        symbolTypes[Math.floor(Math.random() * symbolTypes.length)];
-      const reelId = Math.floor(idx / GameScene.NUMBER_OF_ROWS);
-      const symbolId = idx % GameScene.NUMBER_OF_ROWS;
-      this.resultSpin.push(symbol);
-      // Initialize data for each reel
-      if (symbolId == 0) {
-        rc = this.addChild(new PIXI.Container());
-
-        rc.x = reelId * GameScene.SYMBOL_WIDTH;
-        reel = {
-          container: rc,
-          symbols: [],
-          position: 0,
-          previousPosition: 0,
-          blur: new PIXI.filters.BlurFilter(),
-          isSpin: false,
-        };
-
-        reel.blur.blurX = 0;
-        reel.blur.blurY = 0;
-        rc.filters = [reel.blur];
-      }
-
-      const pos = new PIXI.Point(
-        reelId * GameScene.SYMBOL_WIDTH -
-          boardWidth / 2 +
-          GameScene.SYMBOL_WIDTH / 2,
-        symbolId * GameScene.SYMBOL_HEIGHT - boardHeight / 2
-      );
-      const symbolSpr = new PIXI.Sprite(symbolTextures[symbol]);
-      symbolSpr.position = pos;
-      symbolSpr.anchor.set(0.5);
-      boardContainer.addChild(symbolSpr);
-      reel.symbols.push(symbolSpr);
-      // add data for each reel
-      if ((idx + 1) % GameScene.NUMBER_OF_ROWS == 0) {
-        this.reels.push(reel);
-      }
+    for (let i = 0; i < GameConfig.REELS_NUMBER; i++) {
+      const reel = new Reel(MainApp.inst.app, i);
+      reel.eventEmitter.on("spincomplete", this._onReelSpinComplete.bind(this));
+      this.reels.push(reel);
+      boardContainer.addChild(reel.container);
     }
-    this.reelContainer = boardContainer;
-    // let's create a mask
-    this._createMask(this.reelContainer);
+
+    this.reelsContainer = boardContainer;
   }
 
   private _createMask(boardContainer: PIXI.Container) {
@@ -194,7 +138,7 @@ export class GameScene extends PIXI.Container {
     thing.beginFill(0x8bc5ff, 1);
     thing.drawRect(
       -(boardContainer.width / 2),
-      -(boardContainer.height / 2),
+      -(boardContainer.height / 2) - 40,
       boardContainer.width,
       boardContainer.height
     );
@@ -203,177 +147,79 @@ export class GameScene extends PIXI.Container {
     // add frame
     this.addChild(this._frameSprite);
     this._frameSprite.position.set(
-      GameScene.SCENE_WIDTH / 2,
-      GameScene.SCENE_HEIGHT / 2
+      GameConfig.SCENE_WIDTH / 2,
+      boardContainer.height + GameConfig.SYMBOL_HEIGHT / 2
     );
-    this._frameSprite.width = boardContainer.width * 1.15;
-    this._frameSprite.height = boardContainer.height * 1.15;
+    this._frameSprite.width = boardContainer.width * 1.05;
+    this._frameSprite.height = boardContainer.height * 1.2;
     this._frameSprite.anchor.set(0.5);
   }
 
   public onUpdate(dtScalar: number) {
     const dt = dtScalar / PIXI.settings.TARGET_FPMS / 1000;
     if (this._isInitialized) {
-      for (let i = 0; i < this.reels.length; i++) {
-        const r = this.reels[i];
-        // Update blur filter y amount based on speed.
-        // This would be better if calculated with time in mind also. Now blur depends on frame rate.
-
-        r.blur.blurY = (r.position - r.previousPosition) * 8;
-        r.previousPosition = r.position;
-
-        // Update symbol positions on reel.
-        for (let j = 0; j < r.symbols.length; j++) {
-          const s = r.symbols[j];
-          const prevy = s.y;
-
-          s.y =
-            ((r.position + j) % r.symbols.length) * GameScene.SYMBOL_HEIGHT -
-            GameScene.SYMBOL_HEIGHT;
-          // set texture when spin
-          if (s.y < 0 && prevy > GameScene.SYMBOL_HEIGHT) {
-            // Detect going over and swap a texture.
-            if (this.reels[i].isSpin) {
-              s.texture =
-                symbolTexturesBlur[
-                  symbolTypes[Math.floor(Math.random() * symbolTypes.length)]
-                ];
-            }
-          }
-        }
-      }
-
-      const now = Date.now();
-      const remove = [];
-
-      for (let i = 0; i < this.tweening.length; i++) {
-        const t = this.tweening[i];
-        var phase = Math.min(1, (now - t.start) / t.time);
-
-        t.object[t.property] += phase * GameScene.SPIN_SPEED;
-        // if(this.isProcessing){
-        //     t.object[t.property] += phase * GameScene.SPIN_SPEED;
-        // //    t.start = now;
-        // }else{
-        //     t.object[t.property] = this.lerp(t.propertyBeginValue, t.target, t.easing(phase));
-        // }
-        if (t.change) t.change(t);
-        if (phase > 0.6 && !this.isProcessing) {
-          this.running = false;
-          t.object[t.property] = t.target;
-          if (t.complete) t.complete(t);
-          remove.push(t);
-        }
-      }
-      for (let i = 0; i < remove.length; i++) {
-        this.tweening.splice(this.tweening.indexOf(remove[i]), 1);
-      }
-
-      //this._logoSprite.rotation += 0.01;
+      /**
+       * Update objects in scene here using dt (delta time)
+       * TODO: should call all update function of all the objects in Scene
+       */
     }
   }
 
+  // Function to start playing.
   private _startSpin(): void {
     console.log(` >>> start spin`);
     this._server.requestSpinData();
-    this._startPlay();
-  }
-
-  // Function to start playing.
-  private _startPlay() {
-    if (this.running) return;
     this._udpateStyleSpinBtn(false);
-    this.running = true;
-    this.isProcessing = true;
-    // Start the spinning process
     this._spinReels();
   }
 
   // Function to start the spinning process
   private _spinReels() {
-    console.log("running");
-    for (let i = 0; i < this.reels.length; i++) {
-      const r = this.reels[i];
-      const extra = Math.floor(Math.random() * 3);
-      const target = r.position + 10 + i * 5 + extra;
-      const time = 2500 + i * 300 ;
-      this.reels[i].isSpin = true;
-      console.log(i, " ", target);
-      this.tweenTo(
-        r,
-        "position",
-        target,
-        time,
-        this.backout(0.5),
-        null,
-        i === this.reels.length - 1
-          ? () => {
-              // When all reels complete spinning, recursively call the function or handle server response
-              this._udpateStyleSpinBtn(true);
-              this._showResult(i);
-            }
-          : () => {
-              this._showResult(i);
-            }
-      );
+    let timeout = 0;
+    for (const reel of this.reels) {
+      setTimeout(reel.spin.bind(reel), timeout);
+      timeout += GameConfig.SPIN_DELAY;
     }
   }
 
-  private _reelsComplete() {
-    this.isProcessing = false;
+  private _stopReels(): void {
+    let timeout = 0;
+    for (const reel of this.reels) {
+      setTimeout(reel.stop.bind(reel), timeout);
+      timeout += GameConfig.SPIN_DELAY;
+    }
   }
 
-  private lerp(a1, a2, t) {
-    return a1 * (1 - t) + a2 * t;
-  }
-
-  private tweenTo(
-    object,
-    property,
-    target,
-    time,
-    easing,
-    onchange,
-    oncomplete
-  ) {
-    const tween = {
-      object,
-      property,
-      propertyBeginValue: object[property],
-      target,
-      easing,
-      time,
-      change: onchange,
-      complete: oncomplete,
-      start: Date.now(),
-    };
-
-    this.tweening.push(tween);
-
-    return tween;
-  }
-
-  private backout(amount) {
-    return (t) => --t * t * ((amount + 1) * t + amount) + 1;
+  /**
+   * When spin complete
+   * @param data
+   */
+  private _onReelSpinComplete(data): void {
+    var id = data["id"];
+    if (id + 1 == this.reels.length) {
+      // all reels are stopped
+      this._udpateStyleSpinBtn(true);
+    }
   }
 
   private _onSpinDataResponded(data: string[]): void {
     console.log(` >>> received: ${data}`);
     this.resultSpin = data;
-    this._reelsComplete();
+    this._setReelResult();
+    setTimeout(this._stopReels.bind(this), GameConfig.STOP_TIME);
   }
 
-  private _showResult(reelIdx: number) {
-    this.reels[reelIdx].isSpin = false;
-    for (let i = 0; i < this.resultSpin.length; i++) {
-      const result = this.resultSpin[i]; // Get the result for each reel
-      const curReelIdx = Math.floor(i / GameScene.NUMBER_OF_ROWS);
-      if (curReelIdx === reelIdx) {
-        const r = this.reels[curReelIdx];
-        const s = r.symbols[i % GameScene.NUMBER_OF_ROWS];
-        s.texture = symbolTextures[result];
-      }
-    }
+  // set result for each reel
+  private _setReelResult() {
+    this.reels.forEach((reel) => {
+      var result = [];
+      this.resultSpin.forEach((symbol, index) => {
+        if (Math.floor(index / GameConfig.SYMBOLS_PER_REEL) == reel.id) {
+          result.push(symbol);
+        }
+      });
+      reel.setResult(result);
+    });
   }
 
   private _onAssetsLoaded(
@@ -385,9 +231,10 @@ export class GameScene extends PIXI.Container {
      */
     this._logoSprite = new PIXI.Sprite(resources["logo"].texture);
     this._frameSprite = new PIXI.Sprite(resources["frame"].texture);
-    symbolTypes.forEach((type) => {
-      symbolTextures[type] = resources[`symbol_${type}`].texture;
-      symbolTexturesBlur[type] = resources[`symbol_${type}_blur`].texture;
+    GameConfig.SYMBOL_TYPES.forEach((type) => {
+      GameConfig.symbolTextures[type] = resources[`symbol_${type}`].texture;
+      GameConfig.symbolTexturesBlur[type] =
+        resources[`symbol_${type}_blur`].texture;
     });
     this.init();
   }

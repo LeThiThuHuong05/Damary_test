@@ -218,7 +218,7 @@ export class GameScene extends PIXI.Container {
           result.push(symbol);
         }
       });
-      reel.setResult(result);
+      reel._setResult(result);
     });
   }
 
